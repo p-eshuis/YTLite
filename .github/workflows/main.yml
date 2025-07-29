@@ -3,7 +3,6 @@ name: Create YouTube Plus app
 on:
   workflow_dispatch:
     inputs:
-
       enable_youpip:
         description: "Integrate YouPiP"
         type: boolean
@@ -70,7 +69,7 @@ concurrency:
 
 jobs:
   build:
-    name: 
+    name:
     runs-on: macos-latest
     permissions:
       contents: write
@@ -89,13 +88,36 @@ jobs:
 
       - name: Download and validate IPA
         run: |
-          wget "${{ inputs.ipa_url }}" --no-verbose -O ${{ github.workspace }}/youtube.ipa
+          wget "${{ inputs.ipa_url }}" --no-verbose -O ${{ github.workspace }}/downloaded_file
 
-          file_type=$(file --mime-type -b ${{ github.workspace }}/youtube.ipa)
+          file_type=$(file --mime-type -b ${{ github.workspace }}/downloaded_file)
 
           if [[ "$file_type" != "application/x-ios-app" && "$file_type" != "application/zip" ]]; then
-            echo "::error::Validation failed: The downloaded file is not a valid IPA. Detected type: $file_type."
+            echo "::error::Validation failed: The downloaded file is not a valid IPA or ZIP. Detected type: $file_type."
             exit 1
+          fi
+
+          if [[ "$file_type" == "application/zip" ]]; then
+            echo "Detected ZIP file. Extracting..."
+            unzip -q ${{ github.workspace }}/downloaded_file -d ${{ github.workspace }}/extracted/
+            
+            # Find the IPA file in the extracted contents
+            ipa_file=$(find ${{ github.workspace }}/extracted/ -name "*.ipa" -type f | head -1)
+            
+            if [[ -z "$ipa_file" ]]; then
+              echo "::error::No IPA file found in the extracted ZIP archive."
+              exit 1
+            fi
+            
+            echo "Found IPA file: $ipa_file"
+            mv "$ipa_file" ${{ github.workspace }}/youtube.ipa
+            
+            # Clean up extracted files
+            rm -rf ${{ github.workspace }}/extracted/
+            rm ${{ github.workspace }}/downloaded_file
+          else
+            echo "Detected IPA file. Moving to final location..."
+            mv ${{ github.workspace }}/downloaded_file ${{ github.workspace }}/youtube.ipa
           fi
 
       - name: Install Dependencies
