@@ -88,17 +88,20 @@ jobs:
 
       - name: Download and validate IPA
         run: |
+          # Extract filename from URL to detect extension
+          filename=$(basename "${{ inputs.ipa_url }}")
+          extension="${filename##*.}"
+
           wget "${{ inputs.ipa_url }}" --no-verbose -O ${{ github.workspace }}/downloaded_file
 
-          file_type=$(file --mime-type -b ${{ github.workspace }}/downloaded_file)
-
-          if [[ "$file_type" != "application/x-ios-app" && "$file_type" != "application/zip" ]]; then
-            echo "::error::Validation failed: The downloaded file is not a valid IPA or ZIP. Detected type: $file_type."
+          # Validate file extension
+          if [[ "$extension" != "ipa" && "$extension" != "zip" ]]; then
+            echo "::error::Validation failed: The downloaded file must have .ipa or .zip extension. Detected: .$extension"
             exit 1
           fi
 
-          if [[ "$file_type" == "application/zip" ]]; then
-            echo "Detected ZIP file. Extracting..."
+          if [[ "$extension" == "zip" ]]; then
+            echo "Detected ZIP file (.$extension). Extracting..."
             unzip -q ${{ github.workspace }}/downloaded_file -d ${{ github.workspace }}/extracted/
             
             # Find the IPA file in the extracted contents
@@ -116,7 +119,7 @@ jobs:
             rm -rf ${{ github.workspace }}/extracted/
             rm ${{ github.workspace }}/downloaded_file
           else
-            echo "Detected IPA file. Moving to final location..."
+            echo "Detected IPA file (.$extension). Moving to final location..."
             mv ${{ github.workspace }}/downloaded_file ${{ github.workspace }}/youtube.ipa
           fi
 
